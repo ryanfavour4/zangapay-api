@@ -14,7 +14,7 @@ dotenv.config();
 const paystackBaseUrl = "https://api.paystack.co";
 const paystackLiveKey = "sk_live_2b9869aa9472d35555827ef98d7112a5bf1e2c47";
 // const paystackLiveKey = "sk_test_63a0e81026c20e744a08f18c5d7b724f905540c2"
-const safeHavenUrl = "https://api.sandbox.safehavenmfb.com";
+const safeHavenUrl = "https://api.safehavenmfb.com";
 
 const fincraUrl = "https://api.fincra.com/profile/virtual-accounts";
 
@@ -116,100 +116,76 @@ async function generateFincraVirtualAccount(req, res, next) {
     }
 }
 
-//  async function getUserVirtualAccounts(req, res, next){
-//     try{
-//         const {userId} = req.params
+async function getUserVirtualAccounts(req, res, next) {
+    try {
+        const { userId } = req.params;
 
-//         const checkIfUserAccountExists = await VirtualAccounts.find({userId})
+        const checkIfUserAccountExists = await VirtualAccounts.find({ userId });
 
-//         if(checkIfUserAccountExists.length === 0){
-//             throw new customError('No virtual account found for this user')
-//         }
+        if (checkIfUserAccountExists.length === 0) {
+            throw new customError("No virtual account found for this user");
+        }
 
-//         return res.json({data: 'User virtual account found', message: checkIfUserAccountExists})
-//     }
-//     catch(err){
-//         console.log(err)
-//         next(customError(err))
-//     }
-//  }
+        return res.json({
+            data: "User virtual account found",
+            message: checkIfUserAccountExists,
+        });
+    } catch (err) {
+        console.log(err);
+        next(customError(err));
+    }
+}
 
 // Generate Client Assertion
 function generateClientAssertion() {
-    //     const privateKey = `-----BEGIN PRIVATE KEY-----
-    // MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDmZbwn69CgiV3J
-    // ZGY1Qw7x8yzf+1yRYX7vKqO9xbodjk0olBKkv7/PZd8Za1I3BD4PHvBT9JIY5oFU
-    // 07LQhOUDKDbAHdhXBmCPxASua0r6tvzn4t93AeLvES7d32RgF8c1SN8BUU3xd5j9
-    // iBczC8Bj1G1jfcSot5ytge4xNGNjjd7FKvkOQuuhwhmb4RAVQPCLfyj7CCZrjmDS
-    // TiBlYo4ITEMSFcRxAGlqxFz0/tDperCByVW30NwxYkY+kA1dyU7qzD4frqhLGiqv
-    // rK2A75UeHGZa9VZjJDJ5T4KjMgRiwMV4xdZ6jIPPUQFowvlnzm1lG8G+EXBEBA7O
-    // Io9z/VpfAgMBAAECggEAZLLqffhPgxsG5tL+6SCaE53ZazwNxWz7ccUNNBCLvAdK
-    // KgYt79vvFdLMo+uIT4uHJEy9dbRbdo6o0E6GxSSQg8S7yVRCDic3ZR6jfShf6Ry5
-    // hRBf4z/r09mKxmaxFF7QLrXe4lCK5JMFRyqIGUN1nyxlcyqxHZzC2gMD/HWNSyEO
-    // fzHZTyaXnXBYeTh8q57ksSfb+fIhfKqNfghqAolznYlBzHzagQc6PIBPM5e1XZhK
-    // lYdrFvFP273CYq2QJifOaXhH4b/gazQfDJ2Mjd+spm+Gybudu97CfW8L13b6Rkfq
-    // B47uBMdklus4XRVxk5xQR+OfP2p+mtrKvbi3MLb2wQKBgQD2bhPmP0AdzRoNyc+4
-    // E8CzFf/pFKYhcIcTj2acjgXWncAj3K2Jt71Xzwc+p+lH+b5VGMJ4yDn3wTMYodjw
-    // Kp6mhsJGYKfLBWvWXt9+8cEufNN2Zw5obYHnK0sDoiyq8pfSzXBK6SxZNbv/CQqM
-    // Mn2O5MxFYF4OvL2VcVcfW05hCQKBgQDvWERKrPqFcDOYDPlNrGLQ0RTiuK00gIQC
-    // 7vvkRCbb47GOqLXZk4f2zIN+SeBeBpm26XSt1UZAu7U3+bwzcDoGXS/QZ2heaBEe
-    // uJN44xUjsExJa/ZOc4CiEPreQM7aH72N9++lWHxuidqnthMG656yNMX3YznsQk13
-    // dpMf7xaCJwKBgHhGw9mmV3H0MFo4fPTYVz5RZ4VouakqlhMa87dHrlvQxP378It+
-    // LaEU//E53SdvItG/8vMmrvxYxMqp/AtEkgivT1UwSdVSgQ6xYZ5A+svoywFITYT0
-    // pemhfMx6NBj/rNCLytoVMrsb+fUBga9p2VSMIZNe9Kl2v4WYOzCnzPqZAoGBAOgg
-    // 2jL2qw4JsPBR/ORZQYk2jqQI6mtWDTJvJ7vOYUW4AjfS5nO7gw1YcltkOQfYLPLa
-    // XsBNbZJQusQsIFxfBtevPzVHZVDSa3A5IUYILzNqw8IdxEd3/BSylSxC/JtOV2A+
-    // S504QY5PgtJPYwq+MC6zwiBZiw7ZixpG1RAOqOzXAoGAUG4Uj3rIojpyjjkirQbF
-    // nWNzQelVmYvjCtEp2puL0vFoIH7BP2hObDeeJrMJd5/W9me/8EY4EpQgj6MlpDED
-    // jBMoEvNSeGO5zKeaPtqrB/2LFZyJ2ssSMEGgcBlTS9KTPmr+foo7AfkYFnUwI+mc
-    // 5lSj4AetQea9C5W8hM/Qy2U=
-    // -----END PRIVATE KEY-----
-    // `;
+    const now = Math.floor(Date.now() / 1000);
 
-    const privateKey = process.env.SAFEHAVEN_PRIVATE_KEY.replace(/\\n/g, "\n");
+    try {
+        const privateKey = fs.readFileSync("./privatekey.pem", "utf8");
+        //   console.log(process.env.SAFEHAVEN_CLIENT_ID, "client id");
 
-    console.log(process.env.SAFEHAVEN_CLIENT_ID, "client id");
+        const payload = {
+            iss: "https://zangapay.com", // company website url
+            sub: "f19b9f76732f35c0c9cfc0aa135956a8", // oauth client id
+            aud: "https://api.safehavenmfb.com", // Sandbox or production URL
+            iat: now, // Current timestamp
+            exp: now + 3600, // Expiry in 1 hour
+        };
 
-    console.log(privateKey, "private key");
-    const payload = {
-        iss: "https://zangapay.com", // company website url
-        sub: process.env.SAFEHAVEN_CLIENT_ID, // oauth client id
-        aud: process.env.SAFEHAVEN_URL, // Sandbox or production URL
-        iat: Math.floor(Date.now() / 1000), // Current timestamp
-        exp: Math.floor(Date.now() / 1000) + 3600, // Expiry in 1 hour
-    };
+        const header = {
+            typ: "JWT",
+            alg: "RS256",
+        };
 
-    const header = {
-        alg: "RS256",
-        typ: "JWT",
-    };
-
-    return jwt.sign(payload, privateKey, { algorithm: "RS256", header });
+        return jwt.sign(payload, privateKey, { algorithm: "RS256", header });
+    } catch (error) {
+        console.log("client assertion error", error);
+    }
 }
 
 // Get Access Token
 async function getAccessToken() {
     const clientAssertion = generateClientAssertion();
 
-    console.log(clientAssertion, "client");
     try {
-        const response = await axios.post(
-            `${process.env.SAFEHAVEN_URL}/oauth2/token`,
-            {
+        const options = {
+            method: "POST",
+            url: `https://api.safehavenmfb.com/oauth2/token`,
+            headers: {
+                accept: "application/json",
+                "content-type": "application/json",
+            },
+            data: {
                 grant_type: "client_credentials",
                 client_assertion_type:
                     "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
                 client_assertion: clientAssertion,
-                client_id: process.env.SAFEHAVEN_CLIENT_ID,
+                client_id: `f19b9f76732f35c0c9cfc0aa135956a8`,
             },
-            {
-                headers: {
-                    "Content-Type": "application/json",
-                },
-            }
-        );
+        };
 
-        console.log(response.data, "access");
+        const response = await axios.request(options);
+
         return response.data;
     } catch (error) {
         console.error(
@@ -222,18 +198,15 @@ async function getAccessToken() {
 
 // Create Virtual Account
 async function generateSafeHavenVirtualAccount(req, res, next) {
-    console.log(
-        "HIT THE GENERATE SAFE HAVEN VIRTUAL ACCOUNT ENDPOINT",
-        res.body
-    );
-
     try {
         const { userId } = req.body;
+
         if (!userId) {
             return res.status(400).json({ message: "User ID is required" });
         }
 
         let userAccount = await VirtualAccounts.findOne({ userId });
+        console.log("userAccount", userAccount);
 
         if (userAccount) {
             if (userAccount?.safeHavenAccount) {
@@ -246,31 +219,33 @@ async function generateSafeHavenVirtualAccount(req, res, next) {
 
                 // Account is expired, so update it
                 const accessToken = await getAccessToken();
+                console.log("access Token", accessToken);
+
                 const accountData = {
                     validFor: 900,
                     settlementAccount: {
                         bankCode: "090286",
-                        accountNumber: "0114273505",
+                        accountNumber: "0114121606",
                     },
-                    amountControl: "Fixed",
+                    amountControl: "UnderPayment",
                     amount: 0,
                     callbackUrl: "https://zangapay.com",
                     externalReference: v4(),
                 };
 
                 const response = await axios.post(
-                    `${process.env.SAFEHAVEN_URL}/virtual-accounts`,
+                    `https://api.safehavenmfb.com/virtual-accounts`,
                     accountData,
                     {
                         headers: {
                             Authorization: `Bearer ${accessToken?.access_token}`,
                             "Content-Type": "application/json",
-                            ClientID: process.env.SAFEHAVEN_CLIENT_ID,
+                            ClientID: `f19b9f76732f35c0c9cfc0aa135956a8`,
                         },
                     }
                 );
 
-                console.log(response.data, "respose");
+                console.log(response.data, "response");
 
                 const safeHavenData = {
                     accountNumber: response.data.data.accountNumber,
@@ -291,33 +266,41 @@ async function generateSafeHavenVirtualAccount(req, res, next) {
 
         // If the user has no virtual account at all, create a new one
         const accessToken = await getAccessToken();
-        // 0114121606
-        // 999240
+
+        // write the accesstoken in a file txt
+        console.log(accessToken);
+
         const accountData = {
             validFor: 900,
             settlementAccount: {
                 bankCode: "090286",
                 accountNumber: "0114121606",
             },
-            amountControl: "Fixed",
+            amountControl: "UnderPayment",
             amount: 0,
             callbackUrl: "https://zangapay.com",
             externalReference: v4(),
         };
 
         const response = await axios.post(
-            `${process.env.SAFEHAVEN_URL}/virtual-accounts`,
+            `https://api.safehavenmfb.com/virtual-accounts`,
             accountData,
             {
                 headers: {
                     Authorization: `Bearer ${accessToken?.access_token}`,
                     "Content-Type": "application/json",
-                    ClientID: process.env.SAFEHAVEN_CLIENT_ID,
+                    ClientID: `f19b9f76732f35c0c9cfc0aa135956a8`,
                 },
             }
         );
 
         console.log(response.data, "data");
+
+        if (!response.data?.data) {
+            // throw new Error(response);
+            console.log(response);
+            return;
+        }
 
         const newUserAccount = new VirtualAccounts({
             userId,

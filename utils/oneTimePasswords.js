@@ -1,22 +1,23 @@
-function generateRandomNumbers(){
-    const rand = Math.floor(Math.random() * 6)+ 1;
+function generateRandomNumbers() {
+    const rand = Math.floor(Math.random() * 6) + 1;
 
-    return rand
+    return rand;
 }
-
 
 function generateOneTimePasswords() {
-    const passwordLength = 6
+    const passwordLength = 6;
 
-    let otp = ''
+    let otp = "";
 
-    for(let i = 0; i < 6; i++) {
-      const rand = generateRandomNumbers()
+    for (let i = 0; i < 6; i++) {
+        const rand = generateRandomNumbers();
 
-      otp += rand
+        otp += rand;
     }
 
-    return otp
+    console.log("====== OTP", otp);
+
+    return otp;
 }
 
-module.exports = generateOneTimePasswords
+module.exports = generateOneTimePasswords;

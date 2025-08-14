@@ -1,4 +1,4 @@
-const { 
+const {
     createUserWithEmailAndPassword,
     deleteUser,
     logoutUser,
@@ -12,36 +12,40 @@ const {
     createUserUsingEmailForOauth,
     createAnnoymousSession,
 } = require("../utils/appwrite.js");
-const { v4: uuid } = require('uuid');
+const { v4: uuid } = require("uuid");
 const User = require("../models/user.js");
 const customError = require("../customError.js");
 const { default: mongoose } = require("mongoose");
 const Pins = require("../models/Pin.js");
-const bcrypt = require('bcryptjs')
-const generateReferralCode  = require("../utils/referralCodes.js");
+const bcrypt = require("bcryptjs");
+const generateReferralCode = require("../utils/referralCodes.js");
 const { generateToken } = require("../utils/jwt.js");
-const { setSessionExpirationInHours } = require("../utils/sessionExpiration.js");
+const {
+    setSessionExpirationInHours,
+} = require("../utils/sessionExpiration.js");
 const generateOneTimePasswords = require("../utils/oneTimePasswords.js");
-const { setSessionExpirationInMinutes } = require("../utils/sessionExpiration.js");
+const {
+    setSessionExpirationInMinutes,
+} = require("../utils/sessionExpiration.js");
 const { sendOTPEmail } = require("../mail template/authentication-mail.js");
 const EmailOtps = require("../models/emailOtps.js");
 const hasOtpExpired = require("../utils/verifyOtpValidity.js");
 const Referral = require("../models/referral.js");
-const { body, validationResult } = require('express-validator');
-const crypto = require('crypto');
+const { body, validationResult } = require("express-validator");
+const crypto = require("crypto");
 
 const signupValidators = [
-  body('email').isEmail().normalizeEmail(),
-  body('firstName').isString().isLength({ min: 1, max: 50 }).trim().escape(),
-  body('lastName').isString().isLength({ min: 1, max: 50 }).trim().escape(),
-  body('password').isString().isLength({ min: 8, max: 100 }),
-  body('phone').isString().isLength({ min: 7, max: 20 }).trim().escape(),
-  body('code').optional().isString().isLength({ max: 20 }).trim().escape()
+    body("email").isEmail().normalizeEmail(),
+    body("firstName").isString().isLength({ min: 1, max: 50 }).trim().escape(),
+    body("lastName").isString().isLength({ min: 1, max: 50 }).trim().escape(),
+    body("password").isString().isLength({ min: 8, max: 100 }),
+    body("phone").isString().isLength({ min: 7, max: 20 }).trim().escape(),
+    body("code").optional().isString().isLength({ max: 20 }).trim().escape(),
 ];
 
 const signinValidators = [
-  body('email').isEmail().normalizeEmail(),
-  body('password').isString().isLength({ min: 8, max: 100 })
+    body("email").isEmail().normalizeEmail(),
+    body("password").isString().isLength({ min: 8, max: 100 }),
 ];
 
 // Signup user with email
@@ -49,18 +53,20 @@ async function signupUserWithEmail(req, res, next) {
     try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
-            return res.status(400).json({ message: 'Invalid input', errors: errors.array() });
+            return res
+                .status(400)
+                .json({ message: "Invalid input", errors: errors.array() });
         }
         const { email, firstName, lastName, password, phone, code } = req.body;
 
         const checkIfEmailExists = await User.find({ email });
         const checkIfPhoneExists = await User.find({ phone });
 
-        if (checkIfEmailExists.length > 0) 
-            return next(customError('User email exists in our database'));
+        if (checkIfEmailExists.length > 0)
+            return next(customError("User email exists in our database"));
 
-        if (checkIfPhoneExists.length > 0) 
-            return next(customError('User phone exists in our database'));
+        if (checkIfPhoneExists.length > 0)
+            return next(customError("User phone exists in our database"));
 
         let salt = await bcrypt.genSalt(10);
         let hash = await bcrypt.hash(password, salt);
@@ -77,38 +83,45 @@ async function signupUserWithEmail(req, res, next) {
             phone,
             password: hash,
             sessionExpireAt,
-            referralCode
+            referralCode,
         });
 
         await createNewUser.save();
 
-       if(code){
-        // Create a new referral entry for the user
+        if (code) {
+            // Create a new referral entry for the user
 
-        const checkIfReferralExists = await Referral.find({referralCode: code})
+            const checkIfReferralExists = await Referral.find({
+                referralCode: code,
+            });
 
-        if(checkIfReferralExists.length === 0){
-        const newReferral = new Referral({
-            referralCode: code,
-            usageCount:1,
-            referredUsersId:[createNewUser._id]
-        });
+            if (checkIfReferralExists.length === 0) {
+                const newReferral = new Referral({
+                    referralCode: code,
+                    usageCount: 1,
+                    referredUsersId: [createNewUser._id],
+                });
 
-        await newReferral.save();
-    }
-     else{
-        const updateReferral = await Referral.findByIdAndUpdate(checkIfReferralExists[0]._id, {
-            $set:{
-                usageCount: checkIfReferralExists[0].usageCount + 1,
-                referredUsersId: [...checkIfReferralExists[0].referredUsersId, createNewUser._id]
+                await newReferral.save();
+            } else {
+                const updateReferral = await Referral.findByIdAndUpdate(
+                    checkIfReferralExists[0]._id,
+                    {
+                        $set: {
+                            usageCount: checkIfReferralExists[0].usageCount + 1,
+                            referredUsersId: [
+                                ...checkIfReferralExists[0].referredUsersId,
+                                createNewUser._id,
+                            ],
+                        },
+                    }
+                );
             }
-        })
-     }
-    }
+        }
 
         return res.json({ message: [createNewUser], status: 200 });
     } catch (err) {
-        console.log('Signup error:', err.message);
+        console.log("Signup error:", err.message);
         next(customError(err));
     }
 }
@@ -118,45 +131,69 @@ async function signinWithEmailAndPassword(req, res, next) {
     try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
-            return res.status(400).json({ message: 'Invalid input', errors: errors.array() });
+            return res
+                .status(400)
+                .json({ message: "Invalid input", errors: errors.array() });
         }
         const { email, password } = req.body;
 
         const getUserInfo = await User.find({ email });
-        
-        if (getUserInfo.length === 0) 
-            return next(customError('User does not exist. Please register to gain access'));
 
-        const isPasswordMatch = await bcrypt.compare(password, getUserInfo[0].password);
+        if (getUserInfo.length === 0)
+            return next(
+                customError(
+                    "User does not exist. Please register to gain access"
+                )
+            );
 
-        if(!isPasswordMatch) return next(customError('Incorrect password.'))
+        const isPasswordMatch = await bcrypt.compare(
+            password,
+            getUserInfo[0].password
+        );
+
+        if (!isPasswordMatch) return next(customError("Incorrect password."));
 
         // Generate a new sessionId for single-session enforcement
-        const newSessionId = crypto.randomBytes(32).toString('hex');
-        await User.findByIdAndUpdate(getUserInfo[0]._id, { sessionId: newSessionId });
+        const newSessionId = crypto.randomBytes(32).toString("hex");
+        await User.findByIdAndUpdate(getUserInfo[0]._id, {
+            sessionId: newSessionId,
+        });
 
-        const token = generateToken(getUserInfo[0]._id, 'email', newSessionId);
+        const token = generateToken(getUserInfo[0]._id, "email", newSessionId);
 
-        if(getUserInfo[0].isBlocked) return next(customError('Your account is currently blocked. Contact customer support', 401)); 
+        if (getUserInfo[0].isBlocked)
+            return next(
+                customError(
+                    "Your account is currently blocked. Contact customer support",
+                    401
+                )
+            );
 
-        if(getUserInfo[0].isDeleted) return next(customError('Your account is deleted and does not exist.'))
+        if (getUserInfo[0].isDeleted)
+            return next(
+                customError("Your account is deleted and does not exist.")
+            );
 
-        const sessionExpirationDuration = setSessionExpirationInHours(1)
+        const sessionExpirationDuration = setSessionExpirationInHours(1);
 
-    
-        const updateUserSession = await User.findByIdAndUpdate(getUserInfo[0]._id, {
-            sessionExpireAt: sessionExpirationDuration
-        }, {new: true})
+        const updateUserSession = await User.findByIdAndUpdate(
+            getUserInfo[0]._id,
+            {
+                sessionExpireAt: sessionExpirationDuration,
+            },
+            { new: true }
+        );
 
+        const userObject = updateUserSession.toObject();
 
-        const userObject = updateUserSession.toObject()
+        const { password: pass, ...withoutPassword } = userObject;
 
-        const {password: pass, ...withoutPassword} = userObject
-
-        return res.json({ message: {user: withoutPassword, token}, status: 200 });
-
+        return res.json({
+            message: { user: withoutPassword, token },
+            status: 200,
+        });
     } catch (err) {
-        console.log('Signin error:', err.message);
+        console.log("Signin error:", err.message);
         next(customError(err));
     }
 }
@@ -165,17 +202,24 @@ async function signinWithEmailAndPassword(req, res, next) {
 // Logout user session
 async function logoutUserSession(req, res, next) {
     try {
-        const userId = req.userId
+        const userId = req.userId;
 
-        if (!userId) 
-            return next(customError('You have a missing parameter (userId)'));
+        if (!userId)
+            return next(customError("You have a missing parameter (userId)"));
 
-        const updateUserSession = await User.findByIdAndUpdate(userId, {
-            sessionExpireAt: 0
-        }, {new: true})
+        const updateUserSession = await User.findByIdAndUpdate(
+            userId,
+            {
+                sessionExpireAt: 0,
+            },
+            { new: true }
+        );
 
-
-        return res.json({ message: "You have successfully logged out", session: '', status: 200 });
+        return res.json({
+            message: "You have successfully logged out",
+            session: "",
+            status: 200,
+        });
     } catch (err) {
         next(customError(err));
     }
@@ -184,16 +228,18 @@ async function logoutUserSession(req, res, next) {
 // Delete user from codebase
 async function deleteUserFromCodebase(req, res, next) {
     try {
-        const userId = req.userId
+        const userId = req.userId;
 
-        if (!userId ) 
-            return next(customError('You have a missing parameter (userId, identityId)'));
+        if (!userId)
+            return next(
+                customError("You have a missing parameter (userId, identityId)")
+            );
 
         const response = await User.findByIdAndUpdate(userId, {
-         isDeleted: true
-        })
+            isDeleted: true,
+        });
 
-        return res.json({ message: 'User have been deleted', status: 200 });
+        return res.json({ message: "User have been deleted", status: 200 });
     } catch (err) {
         next(customError(err));
     }
@@ -203,8 +249,7 @@ async function sendPhoneOtpForVerification(req, res, next) {
     try {
         const { userId, phone } = req.body;
 
-
-        console.log(userId, phone, 'user')
+        console.log(userId, phone, "user");
 
         const sendOtp = await sendPhoneOneTimePassword(userId, phone);
 
@@ -216,8 +261,6 @@ async function sendPhoneOtpForVerification(req, res, next) {
     }
 }
 
-
-
 async function verifyOtpSentToUser(req, res, next) {
     try {
         const { userId, otp } = req.body;
@@ -225,8 +268,6 @@ async function verifyOtpSentToUser(req, res, next) {
         console.log(userId, otp);
 
         const verifyOtp = await verifyUserOneTimePassword(userId, otp);
-    
-
 
         console.log(verifyOtp);
 
@@ -240,68 +281,81 @@ async function verifyOtpSentToUser(req, res, next) {
 // Send email OTP for verification
 async function sendEmailOtpForVerification(req, res, next) {
     try {
-        const {email} = req.body
+        const { email } = req.body;
 
-        const checkIfUserEmailExists = await User.find({email})
+        const checkIfUserEmailExists = await User.find({ email });
 
-        if(checkIfUserEmailExists[0].length === 0) return next(customError('User does not exist'));
+        if (checkIfUserEmailExists[0].length === 0)
+            return next(customError("User does not exist"));
 
-      const checkIfUserHasValidOtp = await EmailOtps.find({email, isValid:
-      true})
-     console.log(checkIfUserHasValidOtp, "email otps")
-     
-      if(checkIfUserHasValidOtp.length > 0) {
-        const updateAllValidOtpToInvalid = await EmailOtps.updateMany( { email,
-        isValid: true },  { $set: { isValid: false } })
-        
-        const otp = generateOneTimePasswords()
-       
-         const expirationTime = setSessionExpirationInMinutes(5);
-         
-console.log('Generated Expiration Time (ms):', expirationTime.getTime());
-console.log('Current Time at Creation (ms):', Date.now());
-        
+        const checkIfUserHasValidOtp = await EmailOtps.find({
+            email,
+            isValid: true,
+        });
+        console.log(checkIfUserHasValidOtp, "email otps");
+
+        if (checkIfUserHasValidOtp.length > 0) {
+            const updateAllValidOtpToInvalid = await EmailOtps.updateMany(
+                { email, isValid: true },
+                { $set: { isValid: false } }
+            );
+
+            const otp = generateOneTimePasswords();
+
+            const expirationTime = setSessionExpirationInMinutes(5);
+
+            console.log(
+                "Generated Expiration Time (ms):",
+                expirationTime.getTime()
+            );
+            console.log("Current Time at Creation (ms):", Date.now());
+
+            const newOtp = new EmailOtps({
+                userId: checkIfUserEmailExists[0]._id,
+                otp,
+                expirationTime,
+                email: checkIfUserEmailExists[0].email,
+                isValid: true,
+            });
+
+            await newOtp.save();
+
+            console.log("Current Time After Save:", Date.now());
+            sendOTPEmail(
+                checkIfUserEmailExists[0].email,
+                "Verify Your Email",
+                otp,
+                "verifying your email",
+                `${checkIfUserEmailExists[0].firstName}
+        ${checkIfUserEmailExists[0].lastName}`
+            );
+
+            return res.json({ message: "Otp have been sent successfully" });
+        }
+        const otp = generateOneTimePasswords();
+
+        const expirationTime = setSessionExpirationInMinutes(5);
 
         const newOtp = new EmailOtps({
             userId: checkIfUserEmailExists[0]._id,
             otp,
             expirationTime,
             email: checkIfUserEmailExists[0].email,
-            isValid: true
-        })
+            isValid: true,
+        });
 
-        await newOtp.save()
+        await newOtp.save();
 
-
-console.log('Current Time After Save:', Date.now());
-        sendOTPEmail(checkIfUserEmailExists[0].email, 'Verify Your Email', otp, 'verifying your email', 
-        `${checkIfUserEmailExists[0].firstName}
-        ${checkIfUserEmailExists[0].lastName}`
-        )
- 
-        return res.json({ message: 'Otp have been sent successfully' });
-        
-      }
-        const otp = generateOneTimePasswords()
-       
-         const expirationTime = setSessionExpirationInMinutes(5);
-         
-        const newOtp = new EmailOtps({
-            userId: checkIfUserEmailExists[0]._id,
+        sendOTPEmail(
+            checkIfUserEmailExists[0].email,
+            "Verify Your Email",
             otp,
-            expirationTime,
-            email: checkIfUserEmailExists[0].email,
-            isValid: true
-        })
-
-        await newOtp.save()
-
-        sendOTPEmail(checkIfUserEmailExists[0].email, 'Verify Your Email', otp, 'verifying your email', 
-        `${checkIfUserEmailExists[0].firstName}
+            "verifying your email",
+            `${checkIfUserEmailExists[0].firstName}
         ${checkIfUserEmailExists[0].lastName}`
-        )
- 
-        return res.json({ message: 'Otp have been sent successfully' });
+        );
+
+        return res.json({ message: "Otp have been sent successfully" });
     } catch (err) {
         next(customError(err));
     }
@@ -309,63 +363,73 @@ console.log('Current Time After Save:', Date.now());
 
 async function sendEmailOtpForForgottenPassword(req, res, next) {
     try {
-        const {email} = req.body
+        const { email } = req.body;
 
-        const checkIfUserEmailExists = await User.find({email})
+        const checkIfUserEmailExists = await User.find({ email });
 
-        if(checkIfUserEmailExists[0].length === 0) return next(customError('User does not exist'));
+        if (checkIfUserEmailExists[0].length === 0)
+            return next(customError("User does not exist"));
 
-      const checkIfUserHasValidOtp = await EmailOtps.find({email, isValid:
-      true})
-     
-      if(checkIfUserHasValidOtp.length > 0) {
+        const checkIfUserHasValidOtp = await EmailOtps.find({
+            email,
+            isValid: true,
+        });
 
-        const updateAllValidOtpToInvalid = await EmailOtps.updateMany( { email,
-        isValid: true },  { $set: { isValid: false } })
-        
-        const otp = generateOneTimePasswords()
-       
-         const expirationTime = setSessionExpirationInMinutes(5);
+        if (checkIfUserHasValidOtp.length > 0) {
+            const updateAllValidOtpToInvalid = await EmailOtps.updateMany(
+                { email, isValid: true },
+                { $set: { isValid: false } }
+            );
+
+            const otp = generateOneTimePasswords();
+
+            const expirationTime = setSessionExpirationInMinutes(5);
+
+            const newOtp = new EmailOtps({
+                userId: checkIfUserEmailExists[0]._id,
+                otp,
+                expirationTime,
+                email: checkIfUserEmailExists[0].email,
+                isValid: true,
+            });
+
+            await newOtp.save();
+
+            sendOTPEmail(
+                checkIfUserEmailExists[0].email,
+                "Reset Password",
+                otp,
+                "verifying your email",
+                `${checkIfUserEmailExists[0].firstName}
+        ${checkIfUserEmailExists[0].lastName}`
+            );
+
+            return res.json({ message: "Otp have been sent successfully" });
+        }
+        const otp = generateOneTimePasswords();
+
+        const expirationTime = setSessionExpirationInMinutes(5);
 
         const newOtp = new EmailOtps({
             userId: checkIfUserEmailExists[0]._id,
             otp,
             expirationTime,
             email: checkIfUserEmailExists[0].email,
-            isValid: true
-        })
+            isValid: true,
+        });
 
-        await newOtp.save()
+        await newOtp.save();
 
-        sendOTPEmail(checkIfUserEmailExists[0].email, 'Reset Password', otp, 'verifying your email', 
-        `${checkIfUserEmailExists[0].firstName}
-        ${checkIfUserEmailExists[0].lastName}`
-        )
- 
-        return res.json({ message: 'Otp have been sent successfully' });
-        
-      }
-        const otp = generateOneTimePasswords()
-       
-         const expirationTime = setSessionExpirationInMinutes(5);
-
-        const newOtp = new EmailOtps({
-            userId: checkIfUserEmailExists[0]._id,
+        sendOTPEmail(
+            checkIfUserEmailExists[0].email,
+            "Reset Your Password",
             otp,
-            expirationTime,
-            email: checkIfUserEmailExists[0].email,
-            isValid: true
-        })
-
-        await newOtp.save()
-
-
-        sendOTPEmail(checkIfUserEmailExists[0].email, 'Reset Your Password', otp, 'verifying your email', 
-        `${checkIfUserEmailExists[0].firstName}
+            "verifying your email",
+            `${checkIfUserEmailExists[0].firstName}
         ${checkIfUserEmailExists[0].lastName}`
-        )
- 
-        return res.json({ message: 'Otp have been sent successfully' });
+        );
+
+        return res.json({ message: "Otp have been sent successfully" });
     } catch (err) {
         next(customError(err));
     }
@@ -373,63 +437,73 @@ async function sendEmailOtpForForgottenPassword(req, res, next) {
 
 async function sendEmailOtpForResetPin(req, res, next) {
     try {
-        const {email} = req.body
+        const { email } = req.body;
 
-        const checkIfUserEmailExists = await User.find({email})
+        const checkIfUserEmailExists = await User.find({ email });
 
-        if(checkIfUserEmailExists[0].length === 0) return next(customError('User does not exist'));
+        if (checkIfUserEmailExists[0].length === 0)
+            return next(customError("User does not exist"));
 
-      const checkIfUserHasValidOtp = await EmailOtps.find({email, isValid:
-      true})
-     
-      if(checkIfUserHasValidOtp.length > 0) {
+        const checkIfUserHasValidOtp = await EmailOtps.find({
+            email,
+            isValid: true,
+        });
 
-        const updateAllValidOtpToInvalid = await EmailOtps.updateMany( { email,
-        isValid: true },  { $set: { isValid: false } })
-        
-        const otp = generateOneTimePasswords()
-       
-         const expirationTime = setSessionExpirationInMinutes(5);
+        if (checkIfUserHasValidOtp.length > 0) {
+            const updateAllValidOtpToInvalid = await EmailOtps.updateMany(
+                { email, isValid: true },
+                { $set: { isValid: false } }
+            );
+
+            const otp = generateOneTimePasswords();
+
+            const expirationTime = setSessionExpirationInMinutes(5);
+
+            const newOtp = new EmailOtps({
+                userId: checkIfUserEmailExists[0]._id,
+                otp,
+                expirationTime,
+                email: checkIfUserEmailExists[0].email,
+                isValid: true,
+            });
+
+            await newOtp.save();
+
+            sendOTPEmail(
+                checkIfUserEmailExists[0].email,
+                "Reset Your Pin",
+                otp,
+                "verifying your email",
+                `${checkIfUserEmailExists[0].firstName}
+        ${checkIfUserEmailExists[0].lastName}`
+            );
+
+            return res.json({ message: "Otp have been sent successfully" });
+        }
+        const otp = generateOneTimePasswords();
+
+        const expirationTime = setSessionExpirationInMinutes(5);
 
         const newOtp = new EmailOtps({
             userId: checkIfUserEmailExists[0]._id,
             otp,
             expirationTime,
             email: checkIfUserEmailExists[0].email,
-            isValid: true
-        })
+            isValid: true,
+        });
 
-        await newOtp.save()
+        await newOtp.save();
 
-        sendOTPEmail(checkIfUserEmailExists[0].email, 'Reset Your Pin', otp, 'verifying your email', 
-        `${checkIfUserEmailExists[0].firstName}
-        ${checkIfUserEmailExists[0].lastName}`
-        )
- 
-        return res.json({ message: 'Otp have been sent successfully' });
-        
-      }
-        const otp = generateOneTimePasswords()
-       
-         const expirationTime = setSessionExpirationInMinutes(5);
-
-        const newOtp = new EmailOtps({
-            userId: checkIfUserEmailExists[0]._id,
+        sendOTPEmail(
+            checkIfUserEmailExists[0].email,
+            "Reset Your Pin",
             otp,
-            expirationTime,
-            email: checkIfUserEmailExists[0].email,
-            isValid: true
-        })
-
-        await newOtp.save()
-
-
-        sendOTPEmail(checkIfUserEmailExists[0].email, 'Reset Your Pin', otp, 'verifying your email', 
-        `${checkIfUserEmailExists[0].firstName}
+            "verifying your email",
+            `${checkIfUserEmailExists[0].firstName}
         ${checkIfUserEmailExists[0].lastName}`
-        )
- 
-        return res.json({ message: 'Otp have been sent successfully' });
+        );
+
+        return res.json({ message: "Otp have been sent successfully" });
     } catch (err) {
         next(customError(err));
     }
@@ -437,63 +511,73 @@ async function sendEmailOtpForResetPin(req, res, next) {
 
 async function sendEmailOtpForSignin(req, res, next) {
     try {
-        const {email} = req.body
+        const { email } = req.body;
 
-        const checkIfUserEmailExists = await User.find({email})
+        const checkIfUserEmailExists = await User.find({ email });
 
-        if(checkIfUserEmailExists[0].length === 0) return next(customError('User does not exist'));
+        if (checkIfUserEmailExists[0].length === 0)
+            return next(customError("User does not exist"));
 
-      const checkIfUserHasValidOtp = await EmailOtps.find({email, isValid:
-      true})
-     
-      if(checkIfUserHasValidOtp.length > 0) {
+        const checkIfUserHasValidOtp = await EmailOtps.find({
+            email,
+            isValid: true,
+        });
 
-        const updateAllValidOtpToInvalid = await EmailOtps.updateMany( { email,
-        isValid: true },  { $set: { isValid: false } })
-        
-        const otp = generateOneTimePasswords()
-       
-         const expirationTime = setSessionExpirationInMinutes(5);
+        if (checkIfUserHasValidOtp.length > 0) {
+            const updateAllValidOtpToInvalid = await EmailOtps.updateMany(
+                { email, isValid: true },
+                { $set: { isValid: false } }
+            );
+
+            const otp = generateOneTimePasswords();
+
+            const expirationTime = setSessionExpirationInMinutes(5);
+
+            const newOtp = new EmailOtps({
+                userId: checkIfUserEmailExists[0]._id,
+                otp,
+                expirationTime,
+                email: checkIfUserEmailExists[0].email,
+                isValid: true,
+            });
+
+            await newOtp.save();
+
+            sendOTPEmail(
+                checkIfUserEmailExists[0].email,
+                "Signin To Zangapay Account",
+                otp,
+                "verifying your email",
+                `${checkIfUserEmailExists[0].firstName}
+        ${checkIfUserEmailExists[0].lastName}`
+            );
+
+            return res.json({ message: "Otp have been sent successfully" });
+        }
+        const otp = generateOneTimePasswords();
+
+        const expirationTime = setSessionExpirationInMinutes(5);
 
         const newOtp = new EmailOtps({
             userId: checkIfUserEmailExists[0]._id,
             otp,
             expirationTime,
             email: checkIfUserEmailExists[0].email,
-            isValid: true
-        })
+            isValid: true,
+        });
 
-        await newOtp.save()
+        await newOtp.save();
 
-        sendOTPEmail(checkIfUserEmailExists[0].email, 'Signin To Zangapay Account', otp, 'verifying your email', 
-        `${checkIfUserEmailExists[0].firstName}
-        ${checkIfUserEmailExists[0].lastName}`
-        )
- 
-        return res.json({ message: 'Otp have been sent successfully' });
-        
-      }
-        const otp = generateOneTimePasswords()
-       
-         const expirationTime = setSessionExpirationInMinutes(5);
-
-        const newOtp = new EmailOtps({
-            userId: checkIfUserEmailExists[0]._id,
+        sendOTPEmail(
+            checkIfUserEmailExists[0].email,
+            "Signin To Zangapay Account",
             otp,
-            expirationTime,
-            email: checkIfUserEmailExists[0].email,
-            isValid: true
-        })
-
-        await newOtp.save()
-
-
-        sendOTPEmail(checkIfUserEmailExists[0].email, 'Signin To Zangapay Account', otp, 'verifying your email', 
-        `${checkIfUserEmailExists[0].firstName}
+            "verifying your email",
+            `${checkIfUserEmailExists[0].firstName}
         ${checkIfUserEmailExists[0].lastName}`
-        )
- 
-        return res.json({ message: 'Otp have been sent successfully' });
+        );
+
+        return res.json({ message: "Otp have been sent successfully" });
     } catch (err) {
         next(customError(err));
     }
@@ -501,63 +585,73 @@ async function sendEmailOtpForSignin(req, res, next) {
 
 async function sendEmailOtpForAccountDeletion(req, res, next) {
     try {
-        const {email} = req.body
+        const { email } = req.body;
 
-        const checkIfUserEmailExists = await User.find({email})
+        const checkIfUserEmailExists = await User.find({ email });
 
-        if(checkIfUserEmailExists[0].length === 0) return next(customError('User does not exist'));
+        if (checkIfUserEmailExists[0].length === 0)
+            return next(customError("User does not exist"));
 
-      const checkIfUserHasValidOtp = await EmailOtps.find({email, isValid:
-      true})
-     
-      if(checkIfUserHasValidOtp.length > 0) {
+        const checkIfUserHasValidOtp = await EmailOtps.find({
+            email,
+            isValid: true,
+        });
 
-        const updateAllValidOtpToInvalid = await EmailOtps.updateMany( { email,
-        isValid: true },  { $set: { isValid: false } })
-        
-        const otp = generateOneTimePasswords()
-       
-         const expirationTime = setSessionExpirationInMinutes(5);
+        if (checkIfUserHasValidOtp.length > 0) {
+            const updateAllValidOtpToInvalid = await EmailOtps.updateMany(
+                { email, isValid: true },
+                { $set: { isValid: false } }
+            );
+
+            const otp = generateOneTimePasswords();
+
+            const expirationTime = setSessionExpirationInMinutes(5);
+
+            const newOtp = new EmailOtps({
+                userId: checkIfUserEmailExists[0]._id,
+                otp,
+                expirationTime,
+                email: checkIfUserEmailExists[0].email,
+                isValid: true,
+            });
+
+            await newOtp.save();
+
+            sendOTPEmail(
+                checkIfUserEmailExists[0].email,
+                "Delete Zangapay Account",
+                otp,
+                "verifying your email",
+                `${checkIfUserEmailExists[0].firstName}
+        ${checkIfUserEmailExists[0].lastName}`
+            );
+
+            return res.json({ message: "Otp have been sent successfully" });
+        }
+        const otp = generateOneTimePasswords();
+
+        const expirationTime = setSessionExpirationInMinutes(5);
 
         const newOtp = new EmailOtps({
             userId: checkIfUserEmailExists[0]._id,
             otp,
             expirationTime,
             email: checkIfUserEmailExists[0].email,
-            isValid: true
-        })
+            isValid: true,
+        });
 
-        await newOtp.save()
+        await newOtp.save();
 
-        sendOTPEmail(checkIfUserEmailExists[0].email, 'Delete Zangapay Account', otp, 'verifying your email', 
-        `${checkIfUserEmailExists[0].firstName}
-        ${checkIfUserEmailExists[0].lastName}`
-        )
- 
-        return res.json({ message: 'Otp have been sent successfully' });
-        
-      }
-        const otp = generateOneTimePasswords()
-       
-         const expirationTime = setSessionExpirationInMinutes(5);
-
-        const newOtp = new EmailOtps({
-            userId: checkIfUserEmailExists[0]._id,
+        sendOTPEmail(
+            checkIfUserEmailExists[0].email,
+            "Delete Zangapay Account",
             otp,
-            expirationTime,
-            email: checkIfUserEmailExists[0].email,
-            isValid: true
-        })
-
-        await newOtp.save()
-
-
-        sendOTPEmail(checkIfUserEmailExists[0].email, 'Delete Zangapay Account', otp, 'verifying your email', 
-        `${checkIfUserEmailExists[0].firstName}
+            "verifying your email",
+            `${checkIfUserEmailExists[0].firstName}
         ${checkIfUserEmailExists[0].lastName}`
-        )
- 
-        return res.json({ message: 'Otp have been sent successfully' });
+        );
+
+        return res.json({ message: "Otp have been sent successfully" });
     } catch (err) {
         next(customError(err));
     }
@@ -566,40 +660,47 @@ async function sendEmailOtpForAccountDeletion(req, res, next) {
 async function verifyEmailOtpSentToUser(req, res, next) {
     try {
         const { otp, email } = req.body;
-        
-        console.log(otp, email)
+
+        console.log(otp, email);
         const [checkIfUserExists, checkIfUserOtpExists] = await Promise.all([
-          User.find({email}),
-          EmailOtps.findOne({email, isValid: true}).sort({createdAt: -1})
-        ])
+            User.find({ email }),
+            EmailOtps.findOne({ email, isValid: true }).sort({ createdAt: -1 }),
+        ]);
 
-        console.log(checkIfUserExists, 'checkIfUserExists')
-        
-        if(checkIfUserExists.length === 0) return next(customError("Email not found"))
-        
-        if(!checkIfUserOtpExists) return next(customError('Otp is expired or not sent by user. Try again'))
+        console.log(checkIfUserExists, "checkIfUserExists");
 
-        if(hasOtpExpired(checkIfUserOtpExists.expirationTime)) return next(customError('Otp is currently expired. Try again'))
-        
-       console.log(checkIfUserOtpExists)
+        if (checkIfUserExists.length === 0)
+            return next(customError("Email not found"));
 
-        if(!checkIfUserOtpExists.isValid) return next(customError('Otp is expired'))
+        if (!checkIfUserOtpExists)
+            return next(
+                customError("Otp is expired or not sent by user. Try again")
+            );
 
-        const isOtpMatched = +otp === checkIfUserOtpExists.otp
+        if (hasOtpExpired(checkIfUserOtpExists.expirationTime))
+            return next(customError("Otp is currently expired. Try again"));
 
-        if(!isOtpMatched) return next(customError('Otp is not valid'))
+        console.log(checkIfUserOtpExists);
 
-        const [updateOtpStatusToNotValid,updateUserEmailToVerified] = await Promise.all([
-            EmailOtps.findByIdAndUpdate(checkIfUserOtpExists._id, {
-                isValid: false,
-                expirationTime: 0
-            }),
-            User.findByIdAndUpdate(checkIfUserOtpExists.userId, {
-                isEmailVerified: true
-            })
-        ])
-        
-        return res.json({ message: 'Otp Verified Successfully' });
+        if (!checkIfUserOtpExists.isValid)
+            return next(customError("Otp is expired"));
+
+        const isOtpMatched = +otp === checkIfUserOtpExists.otp;
+
+        if (!isOtpMatched) return next(customError("Otp is not valid"));
+
+        const [updateOtpStatusToNotValid, updateUserEmailToVerified] =
+            await Promise.all([
+                EmailOtps.findByIdAndUpdate(checkIfUserOtpExists._id, {
+                    isValid: false,
+                    expirationTime: 0,
+                }),
+                User.findByIdAndUpdate(checkIfUserOtpExists.userId, {
+                    isEmailVerified: true,
+                }),
+            ]);
+
+        return res.json({ message: "Otp Verified Successfully" });
     } catch (err) {
         console.log(err);
         next(customError(err));
@@ -611,16 +712,21 @@ async function resetUserPassword(req, res, next) {
     try {
         const { email, password } = req.body;
 
-        const checkIfUserEmailExists = await User.find({email})
+        const checkIfUserEmailExists = await User.find({ email });
 
-        if(checkIfUserEmailExists.length === 0) return next(customError('User does not exist'));
+        if (checkIfUserEmailExists.length === 0)
+            return next(customError("User does not exist"));
 
         let salt = bcrypt.genSaltSync(10);
         let hash = bcrypt.hashSync(password, salt);
 
-        const updatedPassword = await User.findOneAndUpdate({ email }, { password: hash }, { new: true });
+        const updatedPassword = await User.findOneAndUpdate(
+            { email },
+            { password: hash },
+            { new: true }
+        );
 
-        return res.json({ message: 'Password updated successfully' });
+        return res.json({ message: "Password updated successfully" });
     } catch (err) {
         console.log(err);
         next(customError(err));
@@ -631,18 +737,23 @@ async function updateUserPasswordDb(req, res, next) {
     try {
         const { password } = req.body;
 
-        const userId = req.userId
+        const userId = req.userId;
 
-        const checkIfUserEmailExists = await User.findById(userId)
+        const checkIfUserEmailExists = await User.findById(userId);
 
-        if(!checkIfUserEmailExists) return next(customError('User does not exist'));
+        if (!checkIfUserEmailExists)
+            return next(customError("User does not exist"));
 
         let salt = bcrypt.genSaltSync(10);
         let hash = bcrypt.hashSync(password, salt);
 
-        const updatedPassword = await User.findByIdAndUpdate(userId, { password: hash }, { new: true });
+        const updatedPassword = await User.findByIdAndUpdate(
+            userId,
+            { password: hash },
+            { new: true }
+        );
 
-        return res.json({ message: 'Password updated successfully' });
+        return res.json({ message: "Password updated successfully" });
     } catch (err) {
         console.log(err);
         next(customError(err));
@@ -654,16 +765,18 @@ async function updateUserInfoInDb(req, res, next) {
     try {
         const { ...updateData } = req.body;
 
-        console.log(updateData.updateData.profileImage, 'updateUserInfo');
+        console.log(updateData.updateData.profileImage, "updateUserInfo");
 
-        const userId = req.userId
+        const userId = req.userId;
 
-        const updatedUser = await User.findByIdAndUpdate(userId,
-        updateData.updateData, { new: true });
-  
-  console.log(updatedUser, "usee")
+        const updatedUser = await User.findByIdAndUpdate(
+            userId,
+            updateData.updateData,
+            { new: true }
+        );
+
+        console.log(updatedUser, "usee");
         return res.json({ message: updatedUser });
-
     } catch (err) {
         console.log(err);
         next(customError(err));
@@ -673,12 +786,12 @@ async function updateUserInfoInDb(req, res, next) {
 // Get user info from the database
 async function getUserInfoFromDb(req, res, next) {
     try {
-        const userId = req.userId
+        const userId = req.userId;
 
-        const findUserById = await User.findById(userId );
-        
-        if (!findUserById) return next(customError('User does not exist'));
- 
+        const findUserById = await User.findById(userId);
+
+        if (!findUserById) return next(customError("User does not exist"));
+
         return res.json({ message: findUserById });
     } catch (err) {
         console.log(err);
@@ -687,63 +800,62 @@ async function getUserInfoFromDb(req, res, next) {
 }
 
 async function getCurrentSession(req, res, next) {
-  try {
-   
-    const userId = req.userId;
-    
-    const findUserById = await User.findById(userId);
+    try {
+        const userId = req.userId;
 
-    if (!findUserById)
-      return next(customError('User does not exist'));
+        const findUserById = await User.findById(userId);
 
-    if (hasSessionExpired(findUserById.sessionExpireAt)) return next(customError('User session has expired'));
+        if (!findUserById) return next(customError("User does not exist"));
 
-    return res.json({ message: 'User session is still valid' });
+        if (hasSessionExpired(findUserById.sessionExpireAt))
+            return next(customError("User session has expired"));
 
-  } catch (err) {
-    console.log(err);
-    next(customError(err));
-  }
+        return res.json({ message: "User session is still valid" });
+    } catch (err) {
+        console.log(err);
+        next(customError(err));
+    }
 }
 
-async function blockUser(req, res, next){
-    try{
-        const userId = req.userId
+async function blockUser(req, res, next) {
+    try {
+        const userId = req.userId;
 
-        const checkIfUserExists = await User.findById(userId)
+        const checkIfUserExists = await User.findById(userId);
 
-        if(!checkIfUserExists) return next(customError('User does not exist'))
+        if (!checkIfUserExists) return next(customError("User does not exist"));
 
         await User.findByIdAndUpdate(userId, {
-            isBlocked: true
-        })
+            isBlocked: true,
+        });
 
-        return res.json({message: 'User blocked successfully'})
-    }
-    catch(err){
-        console.log(err)
-        next(customError(err))
+        return res.json({ message: "User blocked successfully" });
+    } catch (err) {
+        console.log(err);
+        next(customError(err));
     }
 }
 
-async function createUserPin (req,res,next){
-    try{
-        const {pin, userId} = req.body
+async function createUserPin(req, res, next) {
+    try {
+        const { pin, userId } = req.body;
 
-        if(!pin || !userId) return next(customError('Pin must be provided'))
+        if (!pin || !userId) return next(customError("Pin must be provided"));
 
-        const checkIfUserPinExists = await Pins.find({userId})
+        const checkIfUserPinExists = await Pins.find({ userId });
 
-        if(checkIfUserPinExists.length > 0) {
-
+        if (checkIfUserPinExists.length > 0) {
             let salt = bcrypt.genSaltSync(10);
             let hash = bcrypt.hashSync(pin, salt);
-    
-            const updatePin = await Pins.findByIdAndUpdate(checkIfUserPinExists[0]._id, {
-                pin: hash
-            })
 
-            return res.json({message: 'Pin updated successfully'})
+            const updatePin = await Pins.findByIdAndUpdate(
+                checkIfUserPinExists[0]._id,
+                {
+                    pin: hash,
+                }
+            );
+
+            return res.json({ message: "Pin updated successfully" });
         }
 
         let salt = bcrypt.genSaltSync(10);
@@ -751,120 +863,115 @@ async function createUserPin (req,res,next){
 
         const newUserPin = new Pins({
             userId,
-            pin: hash
-        })
+            pin: hash,
+        });
 
-        await newUserPin.save()
+        await newUserPin.save();
 
-        console.log(newUserPin)
+        console.log(newUserPin);
 
-        return res.json({message: 'Pin Created successfully'})        
-    }
-    catch(err){
-        console.log(err)
-        next(customError(err))
+        return res.json({ message: "Pin Created successfully" });
+    } catch (err) {
+        console.log(err);
+        next(customError(err));
     }
 }
 
-async function loginUserPin (req,res,next){
-    try{
-        const {pin, userId} = req.body
+async function loginUserPin(req, res, next) {
+    try {
+        const { pin, userId } = req.body;
 
-        if(!pin || !userId) return next(customError('Pin must be provided'))
+        if (!pin || !userId) return next(customError("Pin must be provided"));
 
-        const checkIfUserPinExists = await Pins.find({userId})
+        const checkIfUserPinExists = await Pins.find({ userId });
 
-        if(checkIfUserPinExists.length === 0) return next(customError('Pin does not exit'))
-        
-        let isMatched = bcrypt.compareSync(pin, checkIfUserPinExists[0].pin);  
-        
-        if(!isMatched) return next(customError('Invalid pin'))
+        if (checkIfUserPinExists.length === 0)
+            return next(customError("Pin does not exit"));
 
-        const token = generateToken(userId, 'pin')
+        let isMatched = bcrypt.compareSync(pin, checkIfUserPinExists[0].pin);
 
-        return res.json({message: 'Pin is valid', token})     
+        if (!isMatched) return next(customError("Invalid pin"));
 
-    }
-    catch(err){
-        console.log(err)
-        next(customError(err))
+        const token = generateToken(userId, "pin");
+
+        return res.json({ message: "Pin is valid", token });
+    } catch (err) {
+        console.log(err);
+        next(customError(err));
     }
 }
 
 async function transactionUserPin(req, res, next) {
-    try{
-        const {pin, userId} = req.body
+    try {
+        const { pin, userId } = req.body;
 
-        if(!pin || !userId) return next(customError('Pin must be provided'))
+        if (!pin || !userId) return next(customError("Pin must be provided"));
 
-        const checkIfUserPinExists = await Pins.find({userId})
+        const checkIfUserPinExists = await Pins.find({ userId });
 
-        if(checkIfUserPinExists.length === 0) return next(customError('Pin does not exit'))
-        
-        let isMatched = bcrypt.compareSync(pin, checkIfUserPinExists[0].pin);  
-        
-        if(!isMatched) return next(customError('Invalid pin'))
+        if (checkIfUserPinExists.length === 0)
+            return next(customError("Pin does not exit"));
 
-        return res.json({message: 'Pin is valid'})     
+        let isMatched = bcrypt.compareSync(pin, checkIfUserPinExists[0].pin);
 
-    }
-    catch(err){
-        console.log(err)
-        next(customError(err))
-    }  
-}
+        if (!isMatched) return next(customError("Invalid pin"));
 
-async function changeUserPin (req,res,next){
-    try{
-        const {pin} = req.body
-        
-        console.log(pin, 'pin')
-
-        const userId = req.userId
-
-        console.log(userId, 'userId')
-
-        if(!pin || !userId) return next(customError('Pin must be provided'))
-
-        const checkIfUserPinExists = await Pins.find({userId})
-
-        if(checkIfUserPinExists.length === 0) return next(customError('Pin does not exit'))
-        
-
-            let salt = bcrypt.genSaltSync(10);
-            let hash = bcrypt.hashSync(pin, salt);
-    
-
-        const updateUserPin = await Pins.findByIdAndUpdate(checkIfUserPinExists[0]._id, {
-            pin: hash
-        })
-
-        return res.json({message: 'Pin updated successfully'})     
-
-    }
-    catch(err){
-        console.log(err)
-        next(customError(err))
+        return res.json({ message: "Pin is valid" });
+    } catch (err) {
+        console.log(err);
+        next(customError(err));
     }
 }
 
-async function checkIfUserHavePin (req,res,next){
-    try{
-        const {userId} = req.params
+async function changeUserPin(req, res, next) {
+    try {
+        const { pin } = req.body;
 
-        if(!userId) return next(customError('Pin must be provided'))
+        console.log(pin, "pin");
 
-        const checkIfUserPinExists = await Pins.find({userId})
+        const userId = req.userId;
 
-        if(checkIfUserPinExists.length === 0) return next(customError('Pin does not exit'))
-        
+        console.log(userId, "userId");
 
-        return res.json({message: 'User have a pin'})     
+        if (!pin || !userId) return next(customError("Pin must be provided"));
 
+        const checkIfUserPinExists = await Pins.find({ userId });
+
+        if (checkIfUserPinExists.length === 0)
+            return next(customError("Pin does not exit"));
+
+        let salt = bcrypt.genSaltSync(10);
+        let hash = bcrypt.hashSync(pin, salt);
+
+        const updateUserPin = await Pins.findByIdAndUpdate(
+            checkIfUserPinExists[0]._id,
+            {
+                pin: hash,
+            }
+        );
+
+        return res.json({ message: "Pin updated successfully" });
+    } catch (err) {
+        console.log(err);
+        next(customError(err));
     }
-    catch(err){
-        console.log(err)
-        next(customError(err))
+}
+
+async function checkIfUserHavePin(req, res, next) {
+    try {
+        const { userId } = req.params;
+
+        if (!userId) return next(customError("Pin must be provided"));
+
+        const checkIfUserPinExists = await Pins.find({ userId });
+
+        if (checkIfUserPinExists.length === 0)
+            return next(customError("Pin does not exit"));
+
+        return res.json({ message: "User have a pin" });
+    } catch (err) {
+        console.log(err);
+        next(customError(err));
     }
 }
 // Update user info in the database
@@ -914,7 +1021,7 @@ async function checkIfUserHavePin (req,res,next){
 
 //         const findUserByPhone = await User.find({ phone });
 
-//         if (findUserByPhone.length === 0) 
+//         if (findUserByPhone.length === 0)
 //             return next(customError('User does not have a phone number or does not exist'));
 
 //         const response = await updateUserPhoneNumber(findUserByPhone[0].userAuthId, phone);
@@ -931,11 +1038,11 @@ async function checkIfUserHavePin (req,res,next){
 //         const { userId, email } = req.body;
 
 //         console.log(userId,'userId')
- 
+
 //        if(!email){
 //         const findUserById = await User.find({ _id: userId });
 
-//         if (findUserById.length === 0) 
+//         if (findUserById.length === 0)
 //             return next(customError('User does not exist'));
 
 //         return res.json({ message: findUserById[0] });
@@ -945,7 +1052,7 @@ async function checkIfUserHavePin (req,res,next){
 
 //        console.log(findUserByEmail, 'user');
 
-//         if (findUserByEmail.length === 0) 
+//         if (findUserByEmail.length === 0)
 //             return next(customError('User does not have an email or does not exist'));
 
 //         return res.json({ message: findUserByEmail[0] });
@@ -992,13 +1099,12 @@ async function checkIfUserHavePin (req,res,next){
 //   }
 // }
 
-
 module.exports = {
     signupUserWithEmail,
     signinWithEmailAndPassword,
     logoutUserSession,
     deleteUserFromCodebase,
-    sendEmailOtpForForgottenPassword,   
+    sendEmailOtpForForgottenPassword,
     sendEmailOtpForVerification,
     sendEmailOtpForResetPin,
     sendEmailOtpForSignin,
@@ -1019,5 +1125,6 @@ module.exports = {
     checkIfUserHavePin,
     updateUserPasswordDb,
     signupValidators,
-    signinValidators
+    signinValidators,
 };
+
