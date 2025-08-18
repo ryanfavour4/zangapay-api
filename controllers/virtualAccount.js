@@ -116,27 +116,28 @@ async function generateFincraVirtualAccount(req, res, next) {
     }
 }
 
-async function getUserVirtualAccounts(req, res, next) {
-    try {
-        const { userId } = req.params;
+// async function getUserVirtualAccounts(req, res, next) {
+//     try {
+//         const { userId } = req.params;
 
-        const checkIfUserAccountExists = await VirtualAccounts.find({ userId });
+//         const checkIfUserAccountExists = await VirtualAccounts.find({ userId });
 
-        if (checkIfUserAccountExists.length === 0) {
-            throw new customError("No virtual account found for this user");
-        }
+//         if (checkIfUserAccountExists.length === 0) {
+//             throw new customError("No virtual account found for this user");
+//         }
 
-        return res.json({
-            data: "User virtual account found",
-            message: checkIfUserAccountExists,
-        });
-    } catch (err) {
-        console.log(err);
-        next(customError(err));
-    }
-}
+//         return res.json({
+//             data: "User virtual account found",
+//             message: checkIfUserAccountExists,
+//         });
+//     } catch (err) {
+//         console.log(err);
+//         next(customError(err));
+//     }
+// }
 
 // Generate Client Assertion
+
 function generateClientAssertion() {
     const now = Math.floor(Date.now() / 1000);
 
@@ -454,5 +455,6 @@ module.exports = {
     getUserVirtualAccounts,
     generateSafeHavenVirtualAccount,
     generatePaystackVirtualAccount,
+    getAccessToken,
 };
 

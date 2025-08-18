@@ -1,69 +1,64 @@
-const customError = require("../customError")
-const Banks = require("../models/banks")
-const axios = require('axios')
-const Flutterwave = require('flutterwave-node-v3');
-const dotenv = require('dotenv')
+const customError = require("../customError");
+const Banks = require("../models/banks");
+const axios = require("axios");
+const Flutterwave = require("flutterwave-node-v3");
+const dotenv = require("dotenv");
 
-dotenv.config()
+dotenv.config();
 
+const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
-const PAYSTACK_SECRET_KEY =  process.env.PAYSTACK_SECRET_KEY
+async function storeBankDetails(req, res, next) {
+    try {
+        const { bankCode, accountNumber, bankName, fullname } = req.body;
 
-async function storeBankDetails(req, res, next){
-    try{
-        const { bankCode, accountNumber, bankName, fullname} = req.body
+        const userId = req.userId;
 
-        const userId = req.userId
+        if (!userId || !bankCode || !accountNumber || !bankName || !fullname)
+            return next(customError("some parameters are missing"));
 
-        if(!userId || !bankCode || !accountNumber || !bankName || !fullname) return next(customError('some parameters are missing'))
-        
-    
         const newBank = new Banks({
             userId,
             bankCode,
             accountNumber,
             bankName,
-            fullname
-        })
+            fullname,
+        });
 
-        await newBank.save()
-    
-        res.json({message: 'Bank stored successfully'})
+        await newBank.save();
 
-    }
-    catch(err){
-        console.log(err)
-        next(customError(err))
+        res.json({ message: "Bank stored successfully" });
+    } catch (err) {
+        console.log(err);
+        next(customError(err));
     }
 }
 
-async function getBankDetails(req, res, next){
-    try{
-        const userId = req.userId
+async function getBankDetails(req, res, next) {
+    try {
+        const userId = req.userId;
 
-        const checkIfUserBankExists = await Banks.find({userId})
+        const checkIfUserBankExists = await Banks.find({ userId });
 
-        if(checkIfUserBankExists.length === 0) return next(customError('User does not have stored bank details'))
+        if (checkIfUserBankExists.length === 0)
+            return next(customError("User does not have stored bank details"));
 
-    
-        res.json({message: checkIfUserBankExists})
-
-    }
-    catch(err){
-        console.log(err)
-        next(customError(err))
+        res.json({ message: checkIfUserBankExists });
+    } catch (err) {
+        console.log(err);
+        next(customError(err));
     }
 }
 
 async function listNigerianBanks(req, res, next) {
     try {
-        const response = await axios.get('https://api.paystack.co/bank', {
+        const response = await axios.get("https://api.paystack.co/bank", {
             headers: {
-                Authorization: `Bearer sk_test_8b983dd225c5a8b73a783a5c2f1f92291270a377`
+                Authorization: `Bearer sk_test_8b983dd225c5a8b73a783a5c2f1f92291270a377`,
             },
             params: {
-                currency: 'NGN'
-            }
+                currency: "NGN",
+            },
         });
 
         return res.json({ message: response.data });
@@ -74,30 +69,29 @@ async function listNigerianBanks(req, res, next) {
 }
 
 async function verifyBankAccountDetails(req, res, next) {
-    try { 
-        const {account_number, bankCode} = req.body
+    try {
+        const { account_number, bankCode } = req.body;
 
-
-        const response = await axios.get(`https://api.paystack.co/bank/resolve?account_number=${account_number}&bank_code=${bankCode}`, {
-            headers:{
-                Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`
+        const response = await axios.get(
+            `https://api.paystack.co/bank/resolve?account_number=${account_number}&bank_code=${bankCode}`,
+            {
+                headers: {
+                    Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+                },
             }
-        })
+        );
 
         return res.json({ message: response.data });
-
-
     } catch (err) {
         console.log(err);
         return next(customError(err));
     }
 }
 
-
-
 module.exports = {
     storeBankDetails,
     getBankDetails,
     listNigerianBanks,
-    verifyBankAccountDetails
-}
+    verifyBankAccountDetails,
+};
+
