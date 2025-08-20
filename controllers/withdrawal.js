@@ -140,6 +140,7 @@ async function withdrawalWithSafehaven(req, res, next) {
 
         console.log(code, account_number);
         const userId = req.userId;
+        console.log("WITHDRAWAL.JS 143", req.id);
 
         const checkIfUserWalletExists = await Wallet.find({ userId });
 
@@ -150,20 +151,19 @@ async function withdrawalWithSafehaven(req, res, next) {
             return next(customError("Insufficient funds"));
 
         // Step 1: Create a recipient
-        const recipientDetails = {
-            type: "nuban",
-            name,
-            account_number,
-            bank_code: code,
-        };
+        // const recipientDetails = {
+        //     type: "nuban",
+        //     name,
+        //     account:account_number,
+        //     bank_code: code,
+        // };
 
         const recipientResponse = await getAccountNameFromSafeHaven(
             account_number,
             code
         );
-        console.log(recipientResponse);
 
-        if (!response.sessionId) {
+        if (!recipientResponse) {
             return next(
                 customError(
                     recipientResponse.data.message ||
@@ -172,19 +172,31 @@ async function withdrawalWithSafehaven(req, res, next) {
             );
         }
 
-        const recipientCode = recipientResponse.data.data.recipient_code;
+        // const recipientCode = recipientResponse.data.data.recipient_code;
 
-        // Step 2: Initiate the transfer
-        const transferDetails = {
-            recipient: recipientCode,
-            amount: amount * 100,
-            currency: "NGN",
-            narration: narration || "Payment for things",
-            reference: generateReference(),
+        // // Step 2: Initiate the transfer
+        // const transferDetails = {
+        //     recipient: recipientCode,
+        //     amount: amount * 100,
+        //     currency: "NGN",
+        //     narration: narration || "Payment for things",
+        //     reference: generateReference(),
+        // };
+
+        const trasnferData = {
+            saveBeneficiary: true,
+            nameEnquiryReference: recipientResponse.sessionId,
+            debitAccountNumber: "0114121606",
+            beneficiaryBankCode: code,
+            beneficiaryAccountNumber: account_number,
+            amount: amount,
+            narration: narration,
+            paymentReference: generateReference(),
         };
-        console.log(fee, "fee");
 
-        console.log(transferDetails, "transfer details");
+        // console.log(fee, "fee");
+
+        // console.log(transferDetails, "transfer details");
 
         const transferResponse = await axios.post(
             "https://api.paystack.co/transfer",
